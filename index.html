@@ -3,885 +3,551 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Comparateur de Documents</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<title>Comparateur d'Inventaires</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@500;700&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  :root {
-    --bg: #0f0f0f;
-    --surface: #1a1a1a;
-    --surface2: #242424;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.14);
-    --text: #e8e6e0;
-    --text-muted: #888;
-    --text-dim: #555;
-    --add: #1a3a1a;
-    --add-text: #6fcf6f;
-    --add-border: #2d6b2d;
-    --del: #3a1a1a;
-    --del-text: #cf6f6f;
-    --del-border: #6b2d2d;
-    --mod: #2a2a0f;
-    --mod-text: #cfcf4f;
-    --mod-border: #6b6b1a;
-    --accent: #c8b87a;
-    --accent2: #8fae8f;
-  }
-
-  body {
-    font-family: 'DM Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 2rem;
-  }
-
-  header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  header h1 {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.4rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    color: var(--accent);
-    margin-bottom: 0.4rem;
-  }
-
-  header p {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .upload-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .drop-zone {
-    border: 1.5px dashed var(--border2);
-    border-radius: 12px;
-    padding: 2.5rem 1.5rem;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    background: var(--surface);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .drop-zone:hover, .drop-zone.drag-over {
-    border-color: var(--accent);
-    background: var(--surface2);
-  }
-
-  .drop-zone.loaded {
-    border-color: var(--accent2);
-    border-style: solid;
-  }
-
-  .drop-zone input[type="file"] {
-    position: absolute; inset: 0;
-    opacity: 0; cursor: pointer;
-    width: 100%; height: 100%;
-  }
-
-  .drop-icon {
-    font-size: 2rem;
-    margin-bottom: 0.75rem;
-    display: block;
-    opacity: 0.5;
-  }
-
-  .drop-zone.loaded .drop-icon { opacity: 1; }
-
-  .drop-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
-    margin-bottom: 0.4rem;
-  }
-
-  .drop-filename {
-    font-size: 0.85rem;
-    color: var(--accent);
-    font-weight: 500;
-    word-break: break-all;
-  }
-
-  .drop-hint {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    margin-top: 0.5rem;
-  }
-
-  .tag {
-    display: inline-block;
-    background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: 4px;
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    margin: 0 3px;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    text-transform: uppercase;
-  }
-
-  .compare-btn {
-    display: block;
-    width: 100%;
-    padding: 1rem;
-    background: var(--accent);
-    color: #0f0f0f;
-    border: none;
-    border-radius: 8px;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.85rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    margin-bottom: 2rem;
-  }
-
-  .compare-btn:hover { opacity: 0.85; }
-  .compare-btn:active { transform: scale(0.99); }
-  .compare-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-  .stats-bar {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .stat {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-  }
-
-  .stat-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-  }
-
-  .stat-dot.add { background: var(--add-text); }
-  .stat-dot.del { background: var(--del-text); }
-  .stat-dot.mod { background: var(--mod-text); }
-  .stat-dot.same { background: var(--text-dim); }
-
-  .stat-num { font-weight: 500; color: var(--text); }
-  .stat-label { color: var(--text-muted); }
-
-  .view-toggle {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .view-btn {
-    padding: 0.4rem 1rem;
-    border: 1px solid var(--border2);
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: 'DM Mono', monospace;
-    font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .view-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #0f0f0f;
-  }
-
-  .diff-container {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--surface);
-  }
-
-  .diff-header {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .diff-header-cell {
-    padding: 0.75rem 1rem;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
-    border-right: 1px solid var(--border);
-  }
-
-  .diff-header-cell:last-child { border-right: none; }
-
-  .diff-body { font-size: 0.78rem; line-height: 1.8; }
-
-  .diff-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.1s;
-  }
-
-  .diff-row:last-child { border-bottom: none; }
-
-  .diff-row.added { background: var(--add); }
-  .diff-row.removed { background: var(--del); }
-  .diff-row.modified { background: var(--mod); }
-  .diff-row.same { background: transparent; }
-
-  .diff-cell {
-    padding: 0.4rem 1rem;
-    border-right: 1px solid var(--border);
-    white-space: pre-wrap;
-    word-break: break-word;
-    min-height: 2rem;
-    display: flex;
-    align-items: center;
-  }
-
-  .diff-cell:last-child { border-right: none; }
-
-  .diff-cell.add-text { color: var(--add-text); }
-  .diff-cell.del-text { color: var(--del-text); }
-  .diff-cell.mod-text { color: var(--mod-text); }
-  .diff-cell.same-text { color: var(--text-muted); }
-
-  .line-marker {
-    display: inline-block;
-    width: 16px;
-    margin-right: 8px;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .line-marker.plus { color: var(--add-text); }
-  .line-marker.minus { color: var(--del-text); }
-  .line-marker.tilde { color: var(--mod-text); }
-
-  .unified-view .diff-row { grid-template-columns: 1fr; }
-  .unified-view .diff-cell:first-child { border-right: none; }
-  .unified-view .diff-cell:last-child { display: none; }
-
-  .diff-row.same.hidden { display: none; }
-
-  #result-section { display: none; }
-
-  .loading {
-    text-align: center;
-    padding: 3rem;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
-  }
-
-  .loading::after {
-    content: '';
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--accent);
-    margin-left: 8px;
-    animation: pulse 1s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 0.2; }
-    50% { opacity: 1; }
-  }
-
-  .error-msg {
-    background: var(--del);
-    border: 1px solid var(--del-border);
-    border-radius: 8px;
-    padding: 1rem;
-    color: var(--del-text);
-    font-size: 0.8rem;
-    margin-bottom: 1rem;
-  }
-
-  .filter-bar {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    align-items: center;
-  }
-
-  .filter-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-right: 0.25rem;
-  }
-
-  .filter-btn {
-    padding: 0.3rem 0.8rem;
-    border-radius: 4px;
-    border: 1px solid transparent;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.68rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.15s;
-    background: transparent;
-  }
-
-  .filter-btn.add-f { border-color: var(--add-border); color: var(--add-text); }
-  .filter-btn.del-f { border-color: var(--del-border); color: var(--del-text); }
-  .filter-btn.mod-f { border-color: var(--mod-border); color: var(--mod-text); }
-  .filter-btn.same-f { border-color: var(--border2); color: var(--text-muted); }
-
-  .filter-btn.active.add-f { background: var(--add); }
-  .filter-btn.active.del-f { background: var(--del); }
-  .filter-btn.active.mod-f { background: var(--mod); }
-  .filter-btn.active.same-f { background: var(--surface2); }
-
-  .summary-section {
-    margin-top: 2.5rem;
-    border: 1px solid var(--border2);
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--surface);
-  }
-
-  .summary-header {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .summary-header h2 {
-    font-family: 'Playfair Display', serif;
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--accent);
-    letter-spacing: 0.02em;
-  }
-
-  .summary-body {
-    padding: 1.5rem 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .similarity-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .similarity-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-muted);
-    white-space: nowrap;
-    min-width: 120px;
-  }
-
-  .similarity-bar-wrap {
-    flex: 1;
-    height: 6px;
-    background: var(--surface2);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .similarity-bar-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
-    background: linear-gradient(90deg, var(--accent2), var(--accent));
-  }
-
-  .similarity-score {
-    font-size: 1.1rem;
-    font-weight: 500;
-    color: var(--accent);
-    min-width: 48px;
-    text-align: right;
-  }
-
-  .summary-narrative {
-    font-size: 0.82rem;
-    line-height: 1.9;
-    color: var(--text-muted);
-    background: var(--surface2);
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    border-left: 3px solid var(--accent);
-  }
-
-  .summary-narrative strong {
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .summary-totals {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 0.75rem;
-  }
-
-  .total-card {
-    background: var(--surface2);
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .total-card-num {
-    font-size: 1.5rem;
-    font-weight: 500;
-  }
-
-  .total-card-label {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-  }
-
-  .total-card.t-add .total-card-num { color: var(--add-text); }
-  .total-card.t-del .total-card-num { color: var(--del-text); }
-  .total-card.t-mod .total-card-num { color: var(--mod-text); }
-  .total-card.t-same .total-card-num { color: var(--text-muted); }
-  .total-card.t-total .total-card-num { color: var(--accent); }
-
-  @media (max-width: 700px) {
-    .upload-grid { grid-template-columns: 1fr; }
-    .diff-header, .diff-row { grid-template-columns: 1fr; }
-    .diff-header-cell:first-child, .diff-cell:first-child { border-right: none; border-bottom: 1px solid var(--border); }
-    .unified-view .diff-cell:last-child { display: flex; }
-    body { padding: 1rem; }
-  }
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@600;800&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0c0c0e;
+  --s1:#131318;
+  --s2:#1a1a22;
+  --s3:#22222e;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.13);
+  --text:#dddde8;
+  --muted:#666680;
+  --dim:#3a3a4a;
+  --accent:#a78bfa;
+  --accent2:#34d399;
+  --add:#34d399;
+  --del:#f87171;
+  --mod:#fbbf24;
+  --info:#60a5fa;
+  --add-bg:rgba(52,211,153,0.08);
+  --del-bg:rgba(248,113,113,0.08);
+  --mod-bg:rgba(251,191,36,0.08);
+  --info-bg:rgba(96,165,250,0.08);
+}
+
+body{font-family:'IBM Plex Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:2rem}
+
+header{max-width:960px;margin:0 auto 3rem;text-align:center}
+h1{font-family:'Syne',sans-serif;font-weight:800;font-size:2.2rem;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:.5rem}
+.subtitle{font-size:.72rem;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}
+
+.main{max-width:960px;margin:0 auto}
+
+/* Upload */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.drop-zone{border:1.5px dashed var(--border2);border-radius:10px;padding:2rem 1.25rem;text-align:center;cursor:pointer;position:relative;background:var(--s1);transition:border-color .2s,background .2s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--s2)}
+.drop-zone.loaded{border-color:var(--accent2);border-style:solid}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{font-size:1.8rem;display:block;margin-bottom:.6rem;opacity:.45}
+.drop-zone.loaded .dz-icon{opacity:1}
+.dz-role{font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:.3rem}
+.dz-name{font-size:.8rem;color:var(--accent);font-weight:500;word-break:break-all}
+.dz-hint{font-size:.65rem;color:var(--dim);margin-top:.4rem}
+
+.key-field{display:flex;align-items:center;gap:.75rem;background:var(--s1);border:1px solid var(--border2);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.75rem;color:var(--muted)}
+.key-field select{background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:.75rem;padding:.3rem .6rem;cursor:pointer}
+.key-field label{white-space:nowrap}
+
+.compare-btn{display:block;width:100%;padding:.9rem;background:var(--accent);color:#0c0c0e;border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:.85rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:opacity .2s;margin-bottom:2.5rem}
+.compare-btn:hover{opacity:.88}
+.compare-btn:disabled{opacity:.25;cursor:not-allowed}
+
+/* Summary cards */
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:2rem}
+.scard{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;cursor:pointer;transition:border-color .2s,background .2s}
+.scard:hover,.scard.active{border-color:var(--accent);background:var(--s2)}
+.scard-num{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;line-height:1}
+.scard-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:.3rem}
+.scard.c-del .scard-num{color:var(--del)}
+.scard.c-add .scard-num{color:var(--add)}
+.scard.c-mod .scard-num{color:var(--mod)}
+.scard.c-info .scard-num{color:var(--info)}
+.scard.c-same .scard-num{color:var(--muted)}
+
+/* Narrative */
+.narrative{background:var(--s1);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:1rem 1.25rem;font-size:.78rem;line-height:1.9;color:var(--muted);margin-bottom:2rem}
+.narrative strong{color:var(--text);font-weight:500}
+
+/* Similarity bar */
+.sim-row{display:flex;align-items:center;gap:1rem;margin-bottom:.6rem}
+.sim-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);min-width:80px}
+.sim-bar-wrap{flex:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.sim-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .9s cubic-bezier(.4,0,.2,1)}
+.sim-pct{font-size:.9rem;font-weight:500;color:var(--accent2);min-width:44px;text-align:right}
+
+/* Tabs */
+.tabs{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab{padding:.4rem 1rem;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#0c0c0e}
+.tab .badge{display:inline-block;background:rgba(0,0,0,.25);border-radius:3px;padding:1px 5px;margin-left:5px;font-size:.6rem}
+.tab.active .badge{background:rgba(0,0,0,.3)}
+
+/* Search */
+.search-row{display:flex;gap:.75rem;align-items:center;margin-bottom:1rem}
+.search-input{flex:1;background:var(--s1);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:.75rem;padding:.5rem .85rem;outline:none}
+.search-input:focus{border-color:var(--accent)}
+.result-count{font-size:.65rem;color:var(--muted);white-space:nowrap}
+
+/* Table */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:.73rem}
+thead th{background:var(--s2);padding:.6rem .9rem;text-align:left;font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;font-weight:500}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--s2)}
+td{padding:.55rem .9rem;vertical-align:middle;color:var(--text)}
+td.code{font-weight:500;color:var(--accent);white-space:nowrap}
+td.muted{color:var(--muted)}
+
+.badge-status{display:inline-block;border-radius:4px;padding:2px 7px;font-size:.62rem;font-weight:500;letter-spacing:.04em}
+.bs-service{background:rgba(52,211,153,.12);color:var(--add)}
+.bs-stock{background:rgba(96,165,250,.12);color:var(--info)}
+.bs-panne{background:rgba(248,113,113,.12);color:var(--del)}
+.bs-verif{background:rgba(251,191,36,.12);color:var(--mod)}
+.bs-other{background:var(--s3);color:var(--muted)}
+
+.diff-arrow{color:var(--mod);margin:0 4px}
+.tag-old{color:var(--del);text-decoration:line-through;opacity:.7}
+.tag-new{color:var(--add)}
+
+/* Panels */
+.panel{display:none}
+.panel.active{display:block}
+
+#result-section{display:none}
+
+.empty-state{text-align:center;padding:3rem;color:var(--dim);font-size:.75rem}
+
+.loading-bar{text-align:center;padding:2.5rem;color:var(--muted);font-size:.75rem;letter-spacing:.05em}
+.loading-bar::after{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-left:8px;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
+
+@media(max-width:700px){
+  .upload-grid{grid-template-columns:1fr}
+  .summary-grid{grid-template-columns:repeat(3,1fr)}
+  body{padding:1rem}
+}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Comparateur de Documents</h1>
-  <p>
-    <span class="tag">Word</span>
-    <span class="tag">PDF</span>
-    <span class="tag">Excel</span>
-    — Analyse des différences ligne par ligne
-  </p>
+  <h1>Comparateur d'Inventaires</h1>
+  <p class="subtitle">Analyse des écarts entre deux fichiers d'inventaire matériel</p>
 </header>
 
-<div class="upload-grid">
-  <div class="drop-zone" id="zone1" ondragover="handleDrag(event,this)" ondragleave="handleLeave(this)" ondrop="handleDrop(event,0)">
-    <input type="file" accept=".docx,.pdf,.xlsx,.xls,.csv" onchange="handleFile(event,0)">
-    <span class="drop-icon" id="icon1">📄</span>
-    <div class="drop-label">Document A — original</div>
-    <div class="drop-filename" id="name1">Glisser ou cliquer pour choisir</div>
-    <div class="drop-hint">.docx · .pdf · .xlsx · .xls</div>
-  </div>
-  <div class="drop-zone" id="zone2" ondragover="handleDrag(event,this)" ondragleave="handleLeave(this)" ondrop="handleDrop(event,1)">
-    <input type="file" accept=".docx,.pdf,.xlsx,.xls,.csv" onchange="handleFile(event,1)">
-    <span class="drop-icon" id="icon2">📄</span>
-    <div class="drop-label">Document B — modifié</div>
-    <div class="drop-filename" id="name2">Glisser ou cliquer pour choisir</div>
-    <div class="drop-hint">.docx · .pdf · .xlsx · .xls</div>
-  </div>
-</div>
+<div class="main">
 
-<button class="compare-btn" id="compareBtn" onclick="compare()" disabled>
-  Comparer les documents
-</button>
-
-<div id="result-section">
-  <div id="stats-bar" class="stats-bar"></div>
-
-  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-bottom:1rem;">
-    <div class="filter-bar">
-      <span class="filter-label">Afficher :</span>
-      <button class="filter-btn add-f active" onclick="toggleFilter('added',this)">+ Ajouts</button>
-      <button class="filter-btn del-f active" onclick="toggleFilter('removed',this)">− Suppressions</button>
-      <button class="filter-btn mod-f active" onclick="toggleFilter('modified',this)">~ Modifications</button>
-      <button class="filter-btn same-f" onclick="toggleFilter('same',this)">= Identiques</button>
+  <div class="upload-grid">
+    <div class="drop-zone" id="zone0" ondragover="onDrag(event,this)" ondragleave="onLeave(this)" ondrop="onDrop(event,0)">
+      <input type="file" accept=".csv,.xlsx,.xls" onchange="onFile(event,0)">
+      <span class="dz-icon" id="icon0">📋</span>
+      <div class="dz-role">Référentiel DIT (source)</div>
+      <div class="dz-name" id="name0">Glisser ou cliquer</div>
+      <div class="dz-hint">.csv · .xlsx · .xls</div>
     </div>
-    <div class="view-toggle">
-      <button class="view-btn active" onclick="setView('split',this)">Côte à côte</button>
-      <button class="view-btn" onclick="setView('unified',this)">Unifié</button>
+    <div class="drop-zone" id="zone1" ondragover="onDrag(event,this)" ondragleave="onLeave(this)" ondrop="onDrop(event,1)">
+      <input type="file" accept=".csv,.xlsx,.xls" onchange="onFile(event,1)">
+      <span class="dz-icon" id="icon1">📊</span>
+      <div class="dz-role">Inventaire local</div>
+      <div class="dz-name" id="name1">Glisser ou cliquer</div>
+      <div class="dz-hint">.csv · .xlsx · .xls</div>
     </div>
   </div>
 
-  <div class="diff-container" id="diffContainer">
-    <div class="diff-header" id="diffHeader">
-      <div class="diff-header-cell" id="headerA">Document A</div>
-      <div class="diff-header-cell" id="headerB">Document B</div>
-    </div>
-    <div class="diff-body" id="diffBody"></div>
+  <div class="key-field">
+    <label>Colonne clé (identifiant unique) :</label>
+    <select id="keyColA" title="Colonne clé fichier A"><option>— chargez d'abord le fichier A —</option></select>
+    <span style="color:var(--dim)">→</span>
+    <select id="keyColB" title="Colonne clé fichier B"><option>— chargez d'abord le fichier B —</option></select>
   </div>
 
-  <div class="summary-section" id="summarySection" style="display:none;">
-    <div class="summary-header">
-      <h2>Résumé de l'analyse</h2>
+  <button class="compare-btn" id="compareBtn" onclick="compare()" disabled>Analyser les écarts</button>
+
+  <div id="result-section">
+
+    <div class="sim-row">
+      <span class="sim-label">Concordance</span>
+      <div class="sim-bar-wrap"><div class="sim-bar-fill" id="simFill" style="width:0%"></div></div>
+      <span class="sim-pct" id="simPct">—</span>
     </div>
-    <div class="summary-body">
-      <div>
-        <div class="similarity-row">
-          <span class="similarity-label">Similarité</span>
-          <div class="similarity-bar-wrap">
-            <div class="similarity-bar-fill" id="simBarFill" style="width:0%"></div>
-          </div>
-          <span class="similarity-score" id="simScore">—</span>
-        </div>
+
+    <div class="summary-grid">
+      <div class="scard c-same" onclick="showPanel('same')" id="card-same">
+        <div class="scard-num" id="cnt-same">0</div>
+        <div class="scard-label">En commun</div>
       </div>
-      <div class="summary-totals" id="summaryTotals"></div>
-      <div class="summary-narrative" id="summaryNarrative"></div>
+      <div class="scard c-del" onclick="showPanel('only-a')" id="card-only-a">
+        <div class="scard-num" id="cnt-only-a">0</div>
+        <div class="scard-label">Absents du local</div>
+      </div>
+      <div class="scard c-add" onclick="showPanel('only-b')" id="card-only-b">
+        <div class="scard-num" id="cnt-only-b">0</div>
+        <div class="scard-label">Non dans DIT</div>
+      </div>
+      <div class="scard c-mod" onclick="showPanel('status')" id="card-status">
+        <div class="scard-num" id="cnt-status">0</div>
+        <div class="scard-label">Statut différent</div>
+      </div>
+      <div class="scard c-info" onclick="showPanel('user')" id="card-user">
+        <div class="scard-num" id="cnt-user">0</div>
+        <div class="scard-label">Utilisateur différent</div>
+      </div>
+    </div>
+
+    <div class="narrative" id="narrativeBox"></div>
+
+    <div class="tabs" id="tabBar"></div>
+    <div class="search-row">
+      <input class="search-input" type="text" id="searchInput" placeholder="Filtrer par code, marque, modèle, utilisateur..." oninput="filterTable()">
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <div id="panel-only-a" class="panel">
+        <table id="tbl-only-a"><thead></thead><tbody></tbody></table>
+      </div>
+      <div id="panel-only-b" class="panel">
+        <table id="tbl-only-b"><thead></thead><tbody></tbody></table>
+      </div>
+      <div id="panel-status" class="panel">
+        <table id="tbl-status"><thead></thead><tbody></tbody></table>
+      </div>
+      <div id="panel-user" class="panel">
+        <table id="tbl-user"><thead></thead><tbody></tbody></table>
+      </div>
+      <div id="panel-same" class="panel">
+        <table id="tbl-same"><thead></thead><tbody></tbody></table>
+      </div>
     </div>
   </div>
+
 </div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const RAW = [null, null];
+const PARSED = [null, null];
+let results = null;
+let activePanel = null;
 
-const files = [null, null];
-const texts = [null, null];
-const activeFilters = { added: true, removed: true, modified: true, same: false };
-let currentView = 'split';
-let diffRows = [];
-
-function handleDrag(e, el) {
+// ─── Drag & Drop ───────────────────────────────────────────────
+function onDrag(e, el) { e.preventDefault(); el.classList.add('drag-over'); }
+function onLeave(el) { el.classList.remove('drag-over'); }
+function onDrop(e, idx) {
   e.preventDefault();
-  el.classList.add('drag-over');
+  document.getElementById('zone' + idx).classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) processFile(f, idx);
+}
+function onFile(e, idx) {
+  const f = e.target.files[0];
+  if (f) processFile(f, idx);
 }
 
-function handleLeave(el) {
-  el.classList.remove('drag-over');
-}
-
-function handleDrop(e, idx) {
-  e.preventDefault();
-  const zone = document.getElementById('zone' + (idx + 1));
-  zone.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) processFile(file, idx);
-}
-
-function handleFile(e, idx) {
-  const file = e.target.files[0];
-  if (file) processFile(file, idx);
-}
-
-function processFile(file, idx) {
-  files[idx] = file;
-  const name = document.getElementById('name' + (idx + 1));
-  const icon = document.getElementById('icon' + (idx + 1));
-  const zone = document.getElementById('zone' + (idx + 1));
-  name.textContent = file.name;
-  zone.classList.add('loaded');
-
+async function processFile(file, idx) {
+  RAW[idx] = file;
+  const icons = ['📋','📊'];
   const ext = file.name.split('.').pop().toLowerCase();
-  if (ext === 'pdf') icon.textContent = '📕';
-  else if (ext === 'docx' || ext === 'doc') icon.textContent = '📘';
-  else if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') icon.textContent = '📗';
+  document.getElementById('icon' + idx).textContent = ext === 'csv' ? '📋' : '📗';
+  document.getElementById('icon' + idx).style.opacity = '1';
+  document.getElementById('name' + idx).textContent = file.name;
+  document.getElementById('zone' + idx).classList.add('loaded');
 
-  document.getElementById('compareBtn').disabled = !(files[0] && files[1]);
+  PARSED[idx] = await parseFile(file);
+  populateKeySelect(idx, Object.keys(PARSED[idx][0] || {}));
+  autoSelectKey(idx);
+
+  if (PARSED[0] && PARSED[1]) document.getElementById('compareBtn').disabled = false;
 }
 
-async function extractText(file) {
-  const ext = file.name.split('.').pop().toLowerCase();
-
-  if (ext === 'pdf') {
-    const ab = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    let lines = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      const pageText = content.items.map(item => item.str).join(' ');
-      lines.push(...pageText.split('\n').filter(l => l.trim()));
-    }
-    return lines;
-  }
-
-  if (ext === 'docx') {
-    const ab = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: ab });
-    return result.value.split('\n').filter(l => l.trim());
-  }
-
-  if (ext === 'xlsx' || ext === 'xls') {
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab, { type: 'array' });
-    let lines = [];
-    wb.SheetNames.forEach(name => {
-      const ws = wb.Sheets[name];
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      lines.push(`[Feuille: ${name}]`);
-      lines.push(...csv.split('\n').filter(l => l.trim() && l.replace(/,/g, '').trim()));
-    });
-    return lines;
-  }
-
-  if (ext === 'csv') {
-    const text = await file.text();
-    return text.split('\n').filter(l => l.trim());
-  }
-
-  return ['Format non supporté'];
+function populateKeySelect(idx, cols) {
+  const sel = document.getElementById(idx === 0 ? 'keyColA' : 'keyColB');
+  sel.innerHTML = cols.map(c => `<option value="${esc(c)}">${c}</option>`).join('');
+  // Try to auto-pick likely key column
+  const guesses = ['code matériel','code','n° de série','serial','id','identifiant','ref','référence'];
+  const match = cols.find(c => guesses.some(g => c.toLowerCase().includes(g)));
+  if (match) sel.value = match;
 }
 
-function diffLines(linesA, linesB) {
-  const result = [];
-  const la = linesA.length, lb = linesB.length;
-  const dp = Array.from({ length: la + 1 }, () => new Array(lb + 1).fill(0));
-
-  for (let i = 1; i <= la; i++)
-    for (let j = 1; j <= lb; j++)
-      dp[i][j] = linesA[i - 1] === linesB[j - 1]
-        ? dp[i - 1][j - 1] + 1
-        : Math.max(dp[i - 1][j], dp[i][j - 1]);
-
-  let i = la, j = lb;
-  const ops = [];
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && linesA[i - 1] === linesB[j - 1]) {
-      ops.push({ type: 'same', a: linesA[i - 1], b: linesB[j - 1] });
-      i--; j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      ops.push({ type: 'added', a: '', b: linesB[j - 1] });
-      j--;
-    } else {
-      ops.push({ type: 'removed', a: linesA[i - 1], b: '' });
-      i--;
-    }
-  }
-
-  ops.reverse();
-
-  const final = [];
-  let k = 0;
-  while (k < ops.length) {
-    if (ops[k].type === 'removed' && k + 1 < ops.length && ops[k + 1].type === 'added') {
-      final.push({ type: 'modified', a: ops[k].a, b: ops[k + 1].b });
-      k += 2;
-    } else {
-      final.push(ops[k]);
-      k++;
-    }
-  }
-
-  return final;
+function autoSelectKey(idx) {
+  // mirror selection to other if similar
 }
 
-async function compare() {
-  const btn = document.getElementById('compareBtn');
-  btn.disabled = true;
-  btn.textContent = 'Analyse en cours...';
+// ─── Parse file → array of objects ────────────────────────────
+async function parseFile(file) {
+  const ab = await file.arrayBuffer();
+  const wb = XLSX.read(ab, { type: 'array', raw: false });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const raw = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
 
+  // Clean keys and values
+  return raw.map(row => {
+    const clean = {};
+    for (const [k, v] of Object.entries(row)) {
+      const ck = k.replace(/[\u00a0\s]+/g, ' ').trim();
+      const cv = String(v).replace(/[\u00a0\s]+/g, ' ').trim();
+      clean[ck] = cv;
+    }
+    return clean;
+  }).filter(r => Object.values(r).some(v => v !== ''));
+}
+
+// ─── Compare ───────────────────────────────────────────────────
+function compare() {
+  const keyA = document.getElementById('keyColA').value;
+  const keyB = document.getElementById('keyColB').value;
+  if (!keyA || !keyB || !PARSED[0] || !PARSED[1]) return;
+
+  const mapA = new Map();
+  PARSED[0].forEach(r => { const k = r[keyA]; if (k) mapA.set(k, r); });
+  const mapB = new Map();
+  PARSED[1].forEach(r => { const k = r[keyB]; if (k) mapB.set(k, r); });
+
+  const keysA = new Set(mapA.keys());
+  const keysB = new Set(mapB.keys());
+
+  const onlyA = [...keysA].filter(k => !keysB.has(k)).map(k => mapA.get(k));
+  const onlyB = [...keysB].filter(k => !keysA.has(k)).map(k => mapB.get(k));
+  const common = [...keysA].filter(k => keysB.has(k));
+
+  // Status diff: find the best matching "statut" column
+  const statusColA = findCol(Object.keys(PARSED[0][0] || {}), ['statut','status','état','etat']);
+  const statusColB = findCol(Object.keys(PARSED[1][0] || {}), ['statut','status','état','etat']);
+  const userColA = findCol(Object.keys(PARSED[0][0] || {}), ['utilisateur','user','affecté','nom']);
+  const userColB = findCol(Object.keys(PARSED[1][0] || {}), ['utilisateur','user','affecté','nom']);
+  const marqueColA = findCol(Object.keys(PARSED[0][0] || {}), ['marque','brand','fabricant']);
+  const modeleColA = findCol(Object.keys(PARSED[0][0] || {}), ['modèle','modele','model']);
+  const categorieColA = findCol(Object.keys(PARSED[0][0] || {}), ['catégorie','categorie','category','type']);
+
+  const statusDiff = [], userDiff = [], same = [];
+  common.forEach(k => {
+    const a = mapA.get(k), b = mapB.get(k);
+    const sa = statusColA ? norm(a[statusColA]) : '';
+    const sb = statusColB ? norm(b[statusColB]) : '';
+    const ua = userColA ? norm(a[userColA]) : '';
+    const ub = userColB ? norm(b[userColB]) : '';
+    const hasStatusDiff = sa && sb && sa !== sb;
+    const hasUserDiff = ub && ub !== '-' && ua !== ub;
+    if (hasStatusDiff) statusDiff.push({ code: k, rowA: a, rowB: b, sa, sb });
+    if (hasUserDiff) userDiff.push({ code: k, rowA: a, rowB: b, ua, ub });
+    if (!hasStatusDiff && !hasUserDiff) same.push({ code: k, rowA: a });
+  });
+
+  results = {
+    keyA, keyB, statusColA, statusColB, userColA, userColB,
+    marqueColA, modeleColA, categorieColA,
+    onlyA, onlyB, statusDiff, userDiff, same,
+    total: mapA.size + onlyB.length
+  };
+
+  renderResults();
+}
+
+function findCol(cols, guesses) {
+  return cols.find(c => guesses.some(g => c.toLowerCase().includes(g))) || null;
+}
+function norm(v) { return String(v || '').replace(/[\u00a0\s]+/g, ' ').trim(); }
+
+// ─── Render ────────────────────────────────────────────────────
+function renderResults() {
+  const r = results;
   document.getElementById('result-section').style.display = 'block';
-  document.getElementById('diffBody').innerHTML = '<div class="loading">Extraction du texte</div>';
 
-  try {
-    texts[0] = await extractText(files[0]);
-    texts[1] = await extractText(files[1]);
+  const total = r.onlyA.length + r.onlyB.length + r.statusDiff.length + r.same.length;
+  const sim = total > 0 ? Math.round((r.same.length / total) * 100) : 100;
 
-    diffRows = diffLines(texts[0], texts[1]);
+  setTimeout(() => { document.getElementById('simFill').style.width = sim + '%'; }, 80);
+  document.getElementById('simPct').textContent = sim + '%';
 
-    document.getElementById('headerA').textContent = files[0].name;
-    document.getElementById('headerB').textContent = files[1].name;
+  document.getElementById('cnt-same').textContent = r.same.length;
+  document.getElementById('cnt-only-a').textContent = r.onlyA.length;
+  document.getElementById('cnt-only-b').textContent = r.onlyB.length;
+  document.getElementById('cnt-status').textContent = r.statusDiff.length;
+  document.getElementById('cnt-user').textContent = r.userDiff.length;
 
-    renderDiff();
-    renderStats();
-    renderSummary();
+  // Narrative
+  const fA = RAW[0] ? RAW[0].name : 'Fichier A';
+  const fB = RAW[1] ? RAW[1].name : 'Fichier B';
+  const level = sim >= 80 ? 'très proche' : sim >= 50 ? 'partiellement concordant' : 'très différent';
+  let txt = `Les fichiers <strong>${fA}</strong> et <strong>${fB}</strong> sont <strong>${level}</strong> avec un taux de concordance de <strong>${sim}%</strong>. `;
+  const parts = [];
+  if (r.onlyA.length) parts.push(`<strong>${r.onlyA.length} article${r.onlyA.length>1?'s':''}</strong> présent${r.onlyA.length>1?'s':''} dans le DIT mais absent${r.onlyA.length>1?'s':''} de l'inventaire local`);
+  if (r.onlyB.length) parts.push(`<strong>${r.onlyB.length} article${r.onlyB.length>1?'s':''}</strong> dans l'inventaire local non référencé${r.onlyB.length>1?'s':''} dans le DIT`);
+  if (r.statusDiff.length) parts.push(`<strong>${r.statusDiff.length} divergence${r.statusDiff.length>1?'s':''} de statut</strong>`);
+  if (parts.length) txt += parts.join(', ') + '.';
+  else txt += 'Aucun écart détecté — les deux inventaires sont parfaitement synchronisés.';
+  document.getElementById('narrativeBox').innerHTML = txt;
 
-  } catch (err) {
-    document.getElementById('diffBody').innerHTML = `<div class="error-msg">Erreur : ${err.message}</div>`;
-  }
+  // Tables
+  buildTableOnlyA();
+  buildTableOnlyB();
+  buildTableStatus();
+  buildTableUser();
+  buildTableSame();
 
-  btn.disabled = false;
-  btn.textContent = 'Comparer les documents';
+  // Tabs
+  buildTabs();
+  showPanel(r.onlyA.length ? 'only-a' : r.onlyB.length ? 'only-b' : r.statusDiff.length ? 'status' : 'same');
+
   document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function renderDiff() {
-  const body = document.getElementById('diffBody');
-  body.innerHTML = '';
+function buildTabs() {
+  const r = results;
+  const tabs = [
+    { id: 'only-a', label: 'Absents du local', count: r.onlyA.length, cls: 'c-del' },
+    { id: 'only-b', label: 'Non dans DIT', count: r.onlyB.length, cls: 'c-add' },
+    { id: 'status', label: 'Statut différent', count: r.statusDiff.length, cls: 'c-mod' },
+    { id: 'user', label: 'Utilisateur différent', count: r.userDiff.length, cls: 'c-info' },
+    { id: 'same', label: 'Concordants', count: r.same.length, cls: 'c-same' },
+  ];
+  document.getElementById('tabBar').innerHTML = tabs.map(t =>
+    `<button class="tab ${t.cls}" onclick="showPanel('${t.id}')" data-panel="${t.id}">${t.label}<span class="badge">${t.count}</span></button>`
+  ).join('');
+}
 
-  diffRows.forEach((row, idx) => {
-    const div = document.createElement('div');
-    div.className = `diff-row ${row.type}`;
-    div.dataset.type = row.type;
-    if (row.type === 'same' && !activeFilters.same) div.classList.add('hidden');
-    if (!activeFilters[row.type]) div.classList.add('hidden');
+function showPanel(id) {
+  activePanel = id;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === id));
+  document.getElementById('panel-' + id).classList.add('active');
+  document.querySelectorAll('.scard').forEach(c => c.classList.remove('active'));
+  document.getElementById('card-' + id)?.classList.add('active');
+  document.getElementById('searchInput').value = '';
+  filterTable();
+}
 
-    const markers = { added: [' ', '+'], removed: ['-', ' '], modified: ['~', '~'], same: [' ', ' '] };
-    const classes = {
-      added: ['same-text', 'add-text'],
-      removed: ['del-text', 'same-text'],
-      modified: ['mod-text', 'mod-text'],
-      same: ['same-text', 'same-text']
-    };
+function getM(row) {
+  const r = results;
+  return [
+    r.marqueColA ? (row[r.marqueColA] || '') : '',
+    r.modeleColA ? (row[r.modeleColA] || '') : '',
+    r.categorieColA ? (row[r.categorieColA] || '') : '',
+  ];
+}
 
-    const [mA, mB] = markers[row.type];
-    const [cA, cB] = classes[row.type];
+function statusBadge(s) {
+  const map = { 'en service': 'bs-service', 'en stock': 'bs-stock', 'en panne': 'bs-panne', 'a vérifier': 'bs-verif', 'à vérifier': 'bs-verif' };
+  const cls = map[s.toLowerCase()] || 'bs-other';
+  return `<span class="badge-status ${cls}">${s || '—'}</span>`;
+}
 
-    const cellA = document.createElement('div');
-    cellA.className = `diff-cell ${cA}`;
-    if (mA !== ' ') cellA.innerHTML = `<span class="line-marker ${mA === '-' ? 'minus' : mA === '+' ? 'plus' : 'tilde'}">${mA}</span>${escapeHtml(row.a)}`;
-    else cellA.textContent = row.a;
+function buildTableOnlyA() {
+  const r = results;
+  const tbl = document.getElementById('tbl-only-a');
+  tbl.querySelector('thead').innerHTML = `<tr><th>Code matériel</th><th>Catégorie</th><th>Marque</th><th>Modèle</th><th>Statut DIT</th><th>Utilisateur DIT</th></tr>`;
+  tbl.querySelector('tbody').innerHTML = r.onlyA.length ? r.onlyA.map(row => {
+    const [marque, modele, cat] = getM(row);
+    const statut = r.statusColA ? row[r.statusColA] : '';
+    const user = r.userColA ? row[r.userColA] : '';
+    return `<tr data-search="${esc([row[r.keyA],marque,modele,cat,user].join(' ').toLowerCase())}">
+      <td class="code">${esc(row[r.keyA])}</td>
+      <td class="muted">${esc(cat)}</td>
+      <td>${esc(marque)}</td>
+      <td>${esc(modele)}</td>
+      <td>${statusBadge(statut)}</td>
+      <td class="muted">${esc(user) || '—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty-state">Aucun article</td></tr>';
+}
 
-    const cellB = document.createElement('div');
-    cellB.className = `diff-cell ${cB}`;
-    if (mB !== ' ') cellB.innerHTML = `<span class="line-marker ${mB === '-' ? 'minus' : mB === '+' ? 'plus' : 'tilde'}">${mB}</span>${escapeHtml(row.b)}`;
-    else cellB.textContent = row.b;
+function buildTableOnlyB() {
+  const r = results;
+  const tbl = document.getElementById('tbl-only-b');
+  const marqueColB = findCol(Object.keys(PARSED[1][0] || {}), ['marque','brand']);
+  const modeleColB = findCol(Object.keys(PARSED[1][0] || {}), ['modèle','modele','model']);
+  const catColB = findCol(Object.keys(PARSED[1][0] || {}), ['catégorie','categorie','category','type']);
+  tbl.querySelector('thead').innerHTML = `<tr><th>Code matériel</th><th>Catégorie</th><th>Marque</th><th>Modèle</th><th>Statut local</th></tr>`;
+  tbl.querySelector('tbody').innerHTML = r.onlyB.length ? r.onlyB.map(row => {
+    const marque = marqueColB ? row[marqueColB] : '';
+    const modele = modeleColB ? row[modeleColB] : '';
+    const cat = catColB ? row[catColB] : '';
+    const statut = r.statusColB ? row[r.statusColB] : '';
+    return `<tr data-search="${esc([row[r.keyB],marque,modele,cat].join(' ').toLowerCase())}">
+      <td class="code">${esc(row[r.keyB])}</td>
+      <td class="muted">${esc(cat)}</td>
+      <td>${esc(marque)}</td>
+      <td>${esc(modele)}</td>
+      <td>${statusBadge(statut)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty-state">Aucun article</td></tr>';
+}
 
-    div.appendChild(cellA);
-    div.appendChild(cellB);
-    body.appendChild(div);
+function buildTableStatus() {
+  const r = results;
+  const tbl = document.getElementById('tbl-status');
+  tbl.querySelector('thead').innerHTML = `<tr><th>Code matériel</th><th>Marque / Modèle</th><th>Statut DIT</th><th>→</th><th>Statut local</th></tr>`;
+  tbl.querySelector('tbody').innerHTML = r.statusDiff.length ? r.statusDiff.map(({ code, rowA, sa, sb }) => {
+    const [marque, modele] = getM(rowA);
+    return `<tr data-search="${esc([code, marque, modele, sa, sb].join(' ').toLowerCase())}">
+      <td class="code">${esc(code)}</td>
+      <td class="muted">${esc(marque)} ${esc(modele)}</td>
+      <td>${statusBadge(sa)}</td>
+      <td style="color:var(--dim)">→</td>
+      <td>${statusBadge(sb)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty-state">Aucune divergence de statut</td></tr>';
+}
+
+function buildTableUser() {
+  const r = results;
+  const tbl = document.getElementById('tbl-user');
+  tbl.querySelector('thead').innerHTML = `<tr><th>Code matériel</th><th>Marque / Modèle</th><th>Utilisateur DIT</th><th>→</th><th>Utilisateur local</th></tr>`;
+  tbl.querySelector('tbody').innerHTML = r.userDiff.length ? r.userDiff.map(({ code, rowA, ua, ub }) => {
+    const [marque, modele] = getM(rowA);
+    return `<tr data-search="${esc([code, marque, modele, ua, ub].join(' ').toLowerCase())}">
+      <td class="code">${esc(code)}</td>
+      <td class="muted">${esc(marque)} ${esc(modele)}</td>
+      <td class="tag-old">${esc(ua) || '—'}</td>
+      <td style="color:var(--dim)">→</td>
+      <td class="tag-new">${esc(ub) || '—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" class="empty-state">Aucune divergence d\'utilisateur</td></tr>';
+}
+
+function buildTableSame() {
+  const r = results;
+  const tbl = document.getElementById('tbl-same');
+  tbl.querySelector('thead').innerHTML = `<tr><th>Code matériel</th><th>Catégorie</th><th>Marque</th><th>Modèle</th><th>Statut</th><th>Utilisateur</th></tr>`;
+  tbl.querySelector('tbody').innerHTML = r.same.length ? r.same.map(({ code, rowA }) => {
+    const [marque, modele, cat] = getM(rowA);
+    const statut = r.statusColA ? rowA[r.statusColA] : '';
+    const user = r.userColA ? rowA[r.userColA] : '';
+    return `<tr data-search="${esc([code,marque,modele,cat,user].join(' ').toLowerCase())}">
+      <td class="code">${esc(code)}</td>
+      <td class="muted">${esc(cat)}</td>
+      <td>${esc(marque)}</td>
+      <td>${esc(modele)}</td>
+      <td>${statusBadge(statut)}</td>
+      <td class="muted">${esc(user) || '—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty-state">Aucun article</td></tr>';
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const panel = document.querySelector('.panel.active');
+  if (!panel) return;
+  const rows = panel.querySelectorAll('tbody tr[data-search]');
+  let visible = 0;
+  rows.forEach(r => {
+    const match = !q || r.dataset.search.includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) visible++;
   });
+  document.getElementById('resultCount').textContent = q ? `${visible} résultat${visible > 1 ? 's' : ''}` : '';
 }
 
-function renderStats() {
-  const counts = { added: 0, removed: 0, modified: 0, same: 0 };
-  diffRows.forEach(r => counts[r.type]++);
-
-  document.getElementById('stats-bar').innerHTML = `
-    <div class="stat"><span class="stat-dot add"></span><span class="stat-num">${counts.added}</span><span class="stat-label">ajout${counts.added > 1 ? 's' : ''}</span></div>
-    <div class="stat"><span class="stat-dot del"></span><span class="stat-num">${counts.removed}</span><span class="stat-label">suppression${counts.removed > 1 ? 's' : ''}</span></div>
-    <div class="stat"><span class="stat-dot mod"></span><span class="stat-num">${counts.modified}</span><span class="stat-label">modification${counts.modified > 1 ? 's' : ''}</span></div>
-    <div class="stat"><span class="stat-dot same"></span><span class="stat-num">${counts.same}</span><span class="stat-label">ligne${counts.same > 1 ? 's' : ''} identique${counts.same > 1 ? 's' : ''}</span></div>
-  `;
-}
-
-function toggleFilter(type, btn) {
-  activeFilters[type] = !activeFilters[type];
-  btn.classList.toggle('active');
-  document.querySelectorAll(`.diff-row[data-type="${type}"]`).forEach(row => {
-    row.classList.toggle('hidden', !activeFilters[type]);
-  });
-}
-
-function setView(mode, btn) {
-  currentView = mode;
-  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const container = document.getElementById('diffContainer');
-  const header = document.getElementById('diffHeader');
-
-  if (mode === 'unified') {
-    container.classList.add('unified-view');
-    header.style.gridTemplateColumns = '1fr';
-    document.getElementById('headerB').style.display = 'none';
-  } else {
-    container.classList.remove('unified-view');
-    header.style.gridTemplateColumns = '';
-    document.getElementById('headerB').style.display = '';
-  }
-}
-
-function renderSummary() {
-  const counts = { added: 0, removed: 0, modified: 0, same: 0 };
-  diffRows.forEach(r => counts[r.type]++);
-  const total = counts.added + counts.removed + counts.modified + counts.same;
-  const changed = counts.added + counts.removed + counts.modified;
-  const similarity = total > 0 ? Math.round((counts.same / total) * 100) : 100;
-
-  document.getElementById('summarySection').style.display = 'block';
-
-  setTimeout(() => {
-    document.getElementById('simBarFill').style.width = similarity + '%';
-  }, 100);
-  document.getElementById('simScore').textContent = similarity + '%';
-
-  document.getElementById('summaryTotals').innerHTML = `
-    <div class="total-card t-total">
-      <span class="total-card-num">${total}</span>
-      <span class="total-card-label">lignes analysées</span>
-    </div>
-    <div class="total-card t-same">
-      <span class="total-card-num">${counts.same}</span>
-      <span class="total-card-label">identiques</span>
-    </div>
-    <div class="total-card t-add">
-      <span class="total-card-num">${counts.added}</span>
-      <span class="total-card-label">ajout${counts.added > 1 ? 's' : ''}</span>
-    </div>
-    <div class="total-card t-del">
-      <span class="total-card-num">${counts.removed}</span>
-      <span class="total-card-label">suppression${counts.removed > 1 ? 's' : ''}</span>
-    </div>
-    <div class="total-card t-mod">
-      <span class="total-card-num">${counts.modified}</span>
-      <span class="total-card-label">modification${counts.modified > 1 ? 's' : ''}</span>
-    </div>
-  `;
-
-  const nameA = files[0] ? files[0].name : 'Document A';
-  const nameB = files[1] ? files[1].name : 'Document B';
-
-  let narrative = '';
-
-  if (similarity === 100) {
-    narrative = `Les deux documents <strong>${nameA}</strong> et <strong>${nameB}</strong> sont <strong>parfaitement identiques</strong> — aucune différence détectée sur les ${total} lignes analysées.`;
-  } else {
-    const simLevel = similarity >= 80 ? 'très similaires' : similarity >= 50 ? 'partiellement similaires' : 'très différents';
-
-    narrative = `Les documents <strong>${nameA}</strong> et <strong>${nameB}</strong> sont <strong>${simLevel}</strong>, avec un score de similarité de <strong>${similarity}%</strong> sur ${total} ligne${total > 1 ? 's' : ''} analysée${total > 1 ? 's' : ''}.`;
-
-    const parts = [];
-    if (counts.added > 0) parts.push(`<strong>${counts.added} ligne${counts.added > 1 ? 's' : ''}</strong> ont été ajoutée${counts.added > 1 ? 's' : ''} dans le document B`);
-    if (counts.removed > 0) parts.push(`<strong>${counts.removed} ligne${counts.removed > 1 ? 's' : ''}</strong> ont été supprimée${counts.removed > 1 ? 's' : ''} par rapport au document A`);
-    if (counts.modified > 0) parts.push(`<strong>${counts.modified} ligne${counts.modified > 1 ? 's' : ''}</strong> ont été modifiée${counts.modified > 1 ? 's' : ''}`);
-
-    if (parts.length > 0) {
-      narrative += ' Au total, ' + parts.join(', ') + '.';
-    }
-
-    if (counts.same > 0) {
-      narrative += ` Les <strong>${counts.same} ligne${counts.same > 1 ? 's' : ''}</strong> restante${counts.same > 1 ? 's' : ''} sont identiques.`;
-    }
-  }
-
-  document.getElementById('summaryNarrative').innerHTML = narrative;
-}
-
-function escapeHtml(str) {
-  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>
