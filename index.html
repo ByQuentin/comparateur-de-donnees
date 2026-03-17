@@ -370,6 +370,123 @@
   .filter-btn.active.mod-f { background: var(--mod); }
   .filter-btn.active.same-f { background: var(--surface2); }
 
+  .summary-section {
+    margin-top: 2.5rem;
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .summary-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .summary-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  .summary-body {
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .similarity-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .similarity-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    min-width: 120px;
+  }
+
+  .similarity-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .similarity-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+  }
+
+  .similarity-score {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: right;
+  }
+
+  .summary-narrative {
+    font-size: 0.82rem;
+    line-height: 1.9;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent);
+  }
+
+  .summary-narrative strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .summary-totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .total-card {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .total-card-num {
+    font-size: 1.5rem;
+    font-weight: 500;
+  }
+
+  .total-card-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+  }
+
+  .total-card.t-add .total-card-num { color: var(--add-text); }
+  .total-card.t-del .total-card-num { color: var(--del-text); }
+  .total-card.t-mod .total-card-num { color: var(--mod-text); }
+  .total-card.t-same .total-card-num { color: var(--text-muted); }
+  .total-card.t-total .total-card-num { color: var(--accent); }
+
   @media (max-width: 700px) {
     .upload-grid { grid-template-columns: 1fr; }
     .diff-header, .diff-row { grid-template-columns: 1fr; }
@@ -435,6 +552,25 @@
       <div class="diff-header-cell" id="headerB">Document B</div>
     </div>
     <div class="diff-body" id="diffBody"></div>
+  </div>
+
+  <div class="summary-section" id="summarySection" style="display:none;">
+    <div class="summary-header">
+      <h2>Résumé de l'analyse</h2>
+    </div>
+    <div class="summary-body">
+      <div>
+        <div class="similarity-row">
+          <span class="similarity-label">Similarité</span>
+          <div class="similarity-bar-wrap">
+            <div class="similarity-bar-fill" id="simBarFill" style="width:0%"></div>
+          </div>
+          <span class="similarity-score" id="simScore">—</span>
+        </div>
+      </div>
+      <div class="summary-totals" id="summaryTotals"></div>
+      <div class="summary-narrative" id="summaryNarrative"></div>
+    </div>
   </div>
 </div>
 
@@ -590,6 +726,7 @@ async function compare() {
 
     renderDiff();
     renderStats();
+    renderSummary();
 
   } catch (err) {
     document.getElementById('diffBody').innerHTML = `<div class="error-msg">Erreur : ${err.message}</div>`;
@@ -675,6 +812,72 @@ function setView(mode, btn) {
     header.style.gridTemplateColumns = '';
     document.getElementById('headerB').style.display = '';
   }
+}
+
+function renderSummary() {
+  const counts = { added: 0, removed: 0, modified: 0, same: 0 };
+  diffRows.forEach(r => counts[r.type]++);
+  const total = counts.added + counts.removed + counts.modified + counts.same;
+  const changed = counts.added + counts.removed + counts.modified;
+  const similarity = total > 0 ? Math.round((counts.same / total) * 100) : 100;
+
+  document.getElementById('summarySection').style.display = 'block';
+
+  setTimeout(() => {
+    document.getElementById('simBarFill').style.width = similarity + '%';
+  }, 100);
+  document.getElementById('simScore').textContent = similarity + '%';
+
+  document.getElementById('summaryTotals').innerHTML = `
+    <div class="total-card t-total">
+      <span class="total-card-num">${total}</span>
+      <span class="total-card-label">lignes analysées</span>
+    </div>
+    <div class="total-card t-same">
+      <span class="total-card-num">${counts.same}</span>
+      <span class="total-card-label">identiques</span>
+    </div>
+    <div class="total-card t-add">
+      <span class="total-card-num">${counts.added}</span>
+      <span class="total-card-label">ajout${counts.added > 1 ? 's' : ''}</span>
+    </div>
+    <div class="total-card t-del">
+      <span class="total-card-num">${counts.removed}</span>
+      <span class="total-card-label">suppression${counts.removed > 1 ? 's' : ''}</span>
+    </div>
+    <div class="total-card t-mod">
+      <span class="total-card-num">${counts.modified}</span>
+      <span class="total-card-label">modification${counts.modified > 1 ? 's' : ''}</span>
+    </div>
+  `;
+
+  const nameA = files[0] ? files[0].name : 'Document A';
+  const nameB = files[1] ? files[1].name : 'Document B';
+
+  let narrative = '';
+
+  if (similarity === 100) {
+    narrative = `Les deux documents <strong>${nameA}</strong> et <strong>${nameB}</strong> sont <strong>parfaitement identiques</strong> — aucune différence détectée sur les ${total} lignes analysées.`;
+  } else {
+    const simLevel = similarity >= 80 ? 'très similaires' : similarity >= 50 ? 'partiellement similaires' : 'très différents';
+
+    narrative = `Les documents <strong>${nameA}</strong> et <strong>${nameB}</strong> sont <strong>${simLevel}</strong>, avec un score de similarité de <strong>${similarity}%</strong> sur ${total} ligne${total > 1 ? 's' : ''} analysée${total > 1 ? 's' : ''}.`;
+
+    const parts = [];
+    if (counts.added > 0) parts.push(`<strong>${counts.added} ligne${counts.added > 1 ? 's' : ''}</strong> ont été ajoutée${counts.added > 1 ? 's' : ''} dans le document B`);
+    if (counts.removed > 0) parts.push(`<strong>${counts.removed} ligne${counts.removed > 1 ? 's' : ''}</strong> ont été supprimée${counts.removed > 1 ? 's' : ''} par rapport au document A`);
+    if (counts.modified > 0) parts.push(`<strong>${counts.modified} ligne${counts.modified > 1 ? 's' : ''}</strong> ont été modifiée${counts.modified > 1 ? 's' : ''}`);
+
+    if (parts.length > 0) {
+      narrative += ' Au total, ' + parts.join(', ') + '.';
+    }
+
+    if (counts.same > 0) {
+      narrative += ` Les <strong>${counts.same} ligne${counts.same > 1 ? 's' : ''}</strong> restante${counts.same > 1 ? 's' : ''} sont identiques.`;
+    }
+  }
+
+  document.getElementById('summaryNarrative').innerHTML = narrative;
 }
 
 function escapeHtml(str) {
